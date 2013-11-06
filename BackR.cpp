@@ -1,32 +1,48 @@
-#include <mysql++/mysql++.h>
+#include "TaskManager.h"
+
 #include <iostream>
+#include <string>
+#include <chrono>
+#include <thread>
+#include <stdexcept>
 
-int main(int, char**)
+int main(int argc, char* argv[])
 {
-    // Connect to the sample database.
-    mysqlpp::Connection conn(false);
-    if (!conn.connect("StalkR", "localhost", "BackR", ""))
+    if (argc != 3)
     {
-	std::cerr << "DB connection failed: " << conn.error() << std::endl;
+	std::cout << "Usage: " << argv[0]
+		  << " [database user] [database password] " << std::endl;
 	return 1;
     }
 
-    // Retrieve the sample stock table set up by resetdb
-    mysqlpp::Query query = conn.query("select * from Tasks");
-    mysqlpp::StoreQueryResult res = query.store();
-	
-    if (!res)
+    try
     {
-	std::cerr << "Failed to get Task table: " << query.error() << std::endl;
+	StalkR::TaskManager manager("stalkr", "localhost", argv[1], argv[2]);
+	std::cout << "BackR started" << std::endl;
+
+	// Enter infinite loop.
+	for (;;)
+	{
+	    try
+	    {
+		manager.fetchTasks();
+		manager.executeTasks();
+	    }
+	    catch(const std::runtime_error &e)
+	    {
+	    }
+
+	    // Avoid busy waiting if we have no tasks.
+	    std::this_thread::sleep_for(std::chrono::seconds(1));
+	}
+    }
+    catch(const std::exception &e)
+    {
+	// Unexpected exception, bail.
+	std::cerr << e.what() << std::endl;
 	return 1;
     }
-
-    for (size_t i = 0; i < res.num_rows(); ++i)
-    {
-	// std::cout << res[i]["column_name"] << std::endl;
-    }
-
-    std::cout << "Hello, BackR!" << std::endl;
 
     return 0;
 }
+
