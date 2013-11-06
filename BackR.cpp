@@ -1,4 +1,5 @@
 #include "TaskManager.h"
+#include "FaceRecognizer.h"
 
 #include <iostream>
 #include <string>
@@ -17,7 +18,8 @@ int main(int argc, char* argv[])
 
     try
     {
-	StalkR::TaskManager manager("stalkr", "localhost", argv[1], argv[2]);
+	StalkR::TaskManager    manager("stalkr", "localhost", argv[1], argv[2]);
+	StalkR::FaceRecognizer recognizer("haarcascade_frontalface_alt.xml");
 	std::cout << "BackR started" << std::endl;
 
 	// Enter infinite loop.
@@ -26,10 +28,15 @@ int main(int argc, char* argv[])
 	    try
 	    {
 		manager.fetchTasks();
-		manager.executeTasks();
+		manager.executeTasks(&recognizer);
+		manager.clearTasks();
 	    }
 	    catch(const std::runtime_error &e)
 	    {
+		// Hope it was a fluke. Report the error,
+		// clear the state and try again.
+		std::cerr << e.what() << std::endl;
+		manager.clearTasks();
 	    }
 
 	    // Avoid busy waiting if we have no tasks.
