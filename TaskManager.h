@@ -8,7 +8,7 @@
 
 namespace StalkR
 {
-    class FaceRecognizer;
+    class FaceDetector;
 
     class TaskManager
     {
@@ -20,11 +20,11 @@ namespace StalkR
 	~TaskManager() throw();
 
 	void fetchTasks() throw(std::runtime_error);
-	void executeTasks(FaceRecognizer *recognizer) throw(std::runtime_error);
+	void executeTasks(FaceDetector *detector) throw(std::runtime_error);
 	void clearTasks() throw() { m_tasks.clear(); }
 
     private:
-	void executeTask(const Task& task, FaceRecognizer *recognizer) throw(std::runtime_error);
+	void executeTask(const Task& task, FaceDetector *detector) throw(std::runtime_error);
 
 	// Make noncopyable, not implemented.
 	TaskManager(const TaskManager&);

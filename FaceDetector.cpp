@@ -1,16 +1,16 @@
-#include "FaceRecognizer.h"
+#include "FaceDetector.h"
 #include <cassert>
 
-using StalkR::FaceRecognizer;
+using StalkR::FaceDetector;
 
-FaceRecognizer::FaceRecognizer(const std::string &classifierPath) throw(std::invalid_argument)
+FaceDetector::FaceDetector(const std::string &classifierPath) throw(std::invalid_argument)
     : m_cascade(new cv::CascadeClassifier(classifierPath))
 {
     if (m_cascade->empty())
 	throw std::invalid_argument("Couldn't load classifier from: " + classifierPath);
 }
 
-void FaceRecognizer::recognize(const std::string &inputPath) throw(std::runtime_error)
+void FaceDetector::recognize(const std::string &inputPath) throw(std::runtime_error)
 {
     m_faces.clear();
     m_image = cv::imread(inputPath, CV_LOAD_IMAGE_GRAYSCALE);
@@ -23,7 +23,7 @@ void FaceRecognizer::recognize(const std::string &inputPath) throw(std::runtime_
     m_cascade->detectMultiScale(m_image, m_faces, scaleFactor, minNeighbours, 0);
 }
 
-void FaceRecognizer::outputFace(const std::string &outputPath) throw(std::runtime_error)
+void FaceDetector::outputFace(const std::string &outputPath) throw(std::runtime_error)
 {
     assert(facesRemaining());
     cv::Mat face = m_image(m_faces.back());

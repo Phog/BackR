@@ -1,7 +1,165 @@
 #include "TaskManager.h"
-#include "FaceRecognizer.h"
+#include "FaceDetector.h"
+
+#include <opencv2/contrib/contrib.hpp>
 
 #include <sstream>
+#include <cassert>
+
+namespace 
+{
+    const std::string WEB_ROOT             = "/var/www/public/";
+    const std::string FACE_PREFIX          = "main/processed_images/";
+    const std::string FACE_EXTENSION       = ".png";
+    const std::string RECOGNIZER_PREFIX    = "main/recognizers/";
+    const std::string RECOGNIZER_EXTENSION = ".xml";
+    
+    size_t makeFace(mysqlpp::Connection *database,
+		    size_t friend_id, size_t image_id) throw(std::runtime_error)
+    {
+	mysqlpp::Transaction transaction(*database,
+					 mysqlpp::Transaction::serializable,
+					 mysqlpp::Transaction::this_transaction);
+	    
+	mysqlpp::Query query = database->query("insert into faces");
+	query << " (friend_id, image_id) values (" 
+	      << mysqlpp::quote << friend_id << ", "
+	      << mysqlpp::quote << image_id << ")";
+
+	query.execute();
+	if (query.errnum())
+	{
+	    std::stringstream errstream;
+	    errstream << "Couldn't add new face: " << query.error();
+	    throw std::runtime_error(errstream.str());
+	}
+	
+	size_t id = query.insert_id();
+	transaction.commit();
+
+	return id;
+    }
+
+    void preprocessImage(StalkR::Image image,
+			 mysqlpp::Connection *database,
+			 StalkR::FaceDetector *detector) throw(std::runtime_error)
+    {
+	const std::string inputPath = WEB_ROOT + image.path.data;
+	
+	detector->recognize(inputPath);
+	if (!detector->facesRemaining())
+	    makeFace(database, image.friend_id, image.id);
+
+	while (detector->facesRemaining())
+	{
+	    size_t id = makeFace(database, image.friend_id, image.id);
+	    std::stringstream pathstream;
+	    pathstream << FACE_PREFIX << id << FACE_EXTENSION;
+
+	    mysqlpp::Query query = database->query("update faces set path=");
+	    query << mysqlpp::quote << pathstream.str() << " where id="
+		  << mysqlpp::quote << id;
+
+	    query.execute();
+	    if (query.errnum())
+	    {
+		std::stringstream errstream;
+		errstream << "Couldn't update face path: " << query.error();
+		throw std::runtime_error(errstream.str());
+	    }
+
+	    detector->outputFace(WEB_ROOT + pathstream.str());
+	}
+    }
+
+    void preprocessFaces(size_t user_id,
+			 mysqlpp::Connection *database,
+			 StalkR::FaceDetector *detector) throw(std::runtime_error)
+    {
+	mysqlpp::Query query = database->query("select i.*");   
+	query << " from images i, friends f"
+	      << " where i.friend_id=f.id and f.user_id=" << user_id
+	      << " and i.id not in (select image_id from faces)";
+
+	mysqlpp::StoreQueryResult result = query.store();
+	if (!result)
+	{
+	    std::stringstream errstream;
+	    errstream << "Couldn't fetch image metadata: " << query.error();
+	    throw std::runtime_error(errstream.str());
+	}
+    
+	for (size_t i = 0; i < result.num_rows(); i++)
+	{
+	    StalkR::Image image = result[i];
+	    if (image.path.is_null)
+		continue;
+
+#ifndef NDEBUG
+	    int rows   = result.num_rows();
+	    int digits = 1;
+	    while (rows > 0)
+	    {
+		digits++;
+		rows /= 10;
+	    }
+
+	    std::cout << "Detecting faces [" << i + 1 << "/" << result.num_rows() << "]"
+		      << std::string(digits, ' ') << "\r" << std::flush;
+#endif
+	    preprocessImage(image, database, detector);
+	}
+#ifndef NDEBUG
+	std::cout << std::endl;
+#endif
+    }
+
+    void loadFaces(size_t user_id, mysqlpp::Connection *database,
+		   std::vector<cv::Mat> *images, std::vector<int> *classes) throw(std::runtime_error)
+    {
+	mysqlpp::Query query = database->query("select * from friends");   
+	query << " where user_id=" << user_id;
+
+	mysqlpp::StoreQueryResult friends = query.store();
+	if (!friends)
+	{
+	    std::stringstream errstream;
+	    errstream << "Couldn't fetch friends: " << query.error();
+	    throw std::runtime_error(errstream.str());
+	}
+    
+	for (size_t i = 0; i < friends.num_rows(); i++)
+	{
+	    StalkR::Friend f = friends[i];
+
+	    query.reset();
+	    query << "select * from faces where friend_id=" << f.id;
+
+	    mysqlpp::StoreQueryResult faces = query.store();
+	    if (!faces)
+	    {
+		std::stringstream errstream;
+		errstream << "Couldn't fetch faces: " << query.error();
+		throw std::runtime_error(errstream.str());
+	    }
+	    
+	    for (size_t j = 0; j < faces.num_rows(); j++)
+	    {
+		StalkR::Face face = faces[j];
+		if (face.path.is_null)
+		    continue;
+		
+		cv::Mat image = cv::imread(WEB_ROOT + face.path.data,
+					   CV_LOAD_IMAGE_GRAYSCALE);
+		if (image.data)
+		{
+		    images->push_back(image);
+		    classes->push_back(f.id);
+		}
+	    }
+	}
+    }
+}
 
 using StalkR::TaskManager;
 using StalkR::Task;
@@ -35,7 +193,7 @@ void TaskManager::fetchTasks() throw(std::runtime_error)
     query.storein(m_tasks);
 }
 
-void TaskManager::executeTasks(FaceRecognizer *recognizer) throw(std::runtime_error)
+void TaskManager::executeTasks(FaceDetector *detector) throw(std::runtime_error)
 {
     mysqlpp::Query query = m_database.query();
     for (size_t i = 0; i < m_tasks.size(); i++)
@@ -53,7 +211,7 @@ void TaskManager::executeTasks(FaceRecognizer *recognizer) throw(std::runtime_er
 	    throw std::runtime_error(errstream.str());
 	}
 	
-	executeTask(m_tasks[i], recognizer);
+	executeTask(m_tasks[i], detector);
 
 	query.reset();
 	query << "delete from tasks where id=" << inProgress.id;
@@ -67,76 +225,35 @@ void TaskManager::executeTasks(FaceRecognizer *recognizer) throw(std::runtime_er
     }
 }
 
-void TaskManager::executeTask(const Task& t, FaceRecognizer *recognizer) throw(std::runtime_error)
+void TaskManager::executeTask(const Task& t, FaceDetector *detector) throw(std::runtime_error)
 {
-    static const std::string WEB_ROOT       = "/var/www/public/";
-    static const std::string FILE_EXTENSION = ".png";
+    preprocessFaces(t.user_id, &m_database, detector);
 
-    mysqlpp::Query query = m_database.query("select i.*");   
-    query << " from images i, friends f"
-	  << " where i.friend_id=f.id and f.user_id=" << t.user_id
-	  << " and i.id not in (select image_id from faces)";
+    std::vector<cv::Mat> faces;
+    std::vector<int>     classes;
+    loadFaces(t.user_id, &m_database, &faces, &classes);
+    if (faces.empty())
+    {
+	assert(classes.empty());
+	return;
+    }
 
+    static const double DISTANCE_TRESHOLD = 2000.0;
+    cv::Ptr<cv::FaceRecognizer> recognizer;
+    recognizer = cv::createFisherFaceRecognizer(0, DISTANCE_TRESHOLD);
+    recognizer->train(faces, classes);
 
-    mysqlpp::StoreQueryResult result = query.store();
-    if (!result)
+    std::stringstream pathstream;
+    pathstream << RECOGNIZER_PREFIX << t.user_id << RECOGNIZER_EXTENSION;
+    recognizer->save(WEB_ROOT + pathstream.str());
+
+    mysqlpp::Query query = m_database.query("update users set recognizer=");
+    query << mysqlpp::quote << pathstream.str();
+    query.execute();
+    if (query.errnum())
     {
 	std::stringstream errstream;
-	errstream << "Couldn't fetch image metadata: " << query.error();
+	errstream << "Couldn't update recognizer path: " << query.error();
 	throw std::runtime_error(errstream.str());
-    }
-    
-    for (size_t i = 0; i < result.num_rows(); i++)
-    {
-	Image image = result[i];
-	if (image.path.is_null)
-	    continue;
-
-	const std::string inputPath    = WEB_ROOT + image.path.data;
-	const std::string outputPrefix = "main/processed_images/";
-	
-	std::cout << "Recognizing face [" << i + 1 << "/"
-		  << result.num_rows() << "]\r" << std::flush;
-
-	recognizer->recognize(inputPath);
-	while (recognizer->facesRemaining())
-	{
-	    mysqlpp::Transaction transaction(m_database,
-					     mysqlpp::Transaction::serializable,
-					     mysqlpp::Transaction::this_transaction);
-	    
-	    mysqlpp::Query query = m_database.query("insert into faces");
-	    query << " (friend_id, image_id) values ("
-		  << mysqlpp::quote << image.friend_id << ", "
-		  << mysqlpp::quote << image.id << ")";
-
-	    query.execute();
-	    if (query.errnum())
-	    {
-		std::stringstream errstream;
-		errstream << "Couldn't add new face: " << query.error();
-		throw std::runtime_error(errstream.str());
-	    }
-
-	    size_t id = query.insert_id();
-	    std::stringstream pathstream;
-	    pathstream << outputPrefix << id << FILE_EXTENSION;
-
-	    query.reset();
-	    query << "update faces set path="
-		  << mysqlpp::quote << pathstream.str()
-		  << " where id=" << mysqlpp::quote << id;
-
-	    query.execute();
-	    if (query.errnum())
-	    {
-		std::stringstream errstream;
-		errstream << "Couldn't update face path: " << query.error();
-		throw std::runtime_error(errstream.str());
-	    }
-
-	    transaction.commit();
-	    recognizer->outputFace(WEB_ROOT + pathstream.str());
-	}
     }
 }

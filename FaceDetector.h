@@ -1,5 +1,5 @@
-#ifndef FACERECOGNIZER_H
-#define FACERECOGNIZER_H
+#ifndef FACEDETECTOR_H
+#define FACEDETECTOR_H
 
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/core/core.hpp>
@@ -12,10 +12,10 @@
 
 namespace StalkR
 {
-    class FaceRecognizer
+    class FaceDetector
     {
     public:
-	FaceRecognizer(const std::string &classifierPath) throw(std::invalid_argument);
+	FaceDetector(const std::string &classifierPath) throw(std::invalid_argument);
 
 	void   recognize(const std::string &inputPath) throw(std::runtime_error);
 	void   outputFace(const std::string &outputPath) throw(std::runtime_error);
@@ -23,8 +23,8 @@ namespace StalkR
 
     private:
 	// Make noncopyable.
-	FaceRecognizer(const FaceRecognizer&);
-	FaceRecognizer& operator=(const FaceRecognizer&);
+	FaceDetector(const FaceDetector&);
+	FaceDetector& operator=(const FaceDetector&);
 
 	cv::Ptr<cv::CascadeClassifier> m_cascade;
 	std::vector<cv::Rect>          m_faces;
@@ -32,4 +32,4 @@ namespace StalkR
     };
 }
 
-#endif // FACERECOGNIZER_H
+#endif // FACEDETECTOR_H
