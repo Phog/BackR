@@ -19,7 +19,7 @@ void FaceDetector::recognize(const std::string &inputPath) throw(std::runtime_er
 
 
     static const double scaleFactor   = 1.1;
-    static const int    minNeighbours = 10;
+    static const int    minNeighbours = 6;
     m_cascade->detectMultiScale(m_image, m_faces, scaleFactor, minNeighbours, 0);
 }
 

@@ -22,7 +22,6 @@ int main(int argc, char* argv[])
 	StalkR::FaceDetector detector("haarcascade_frontalface_alt.xml");
 	std::cout << "BackR started" << std::endl;
 
-	// Enter infinite loop.
 	for (;;)
 	{
 	    try

@@ -1,5 +1,6 @@
 #include "TaskManager.h"
 #include "FaceDetector.h"
+#include "FaceTrainer.h"
 
 #include <opencv2/contrib/contrib.hpp>
 
@@ -115,7 +116,7 @@ namespace
     }
 
     void loadFaces(size_t user_id, mysqlpp::Connection *database,
-		   std::vector<cv::Mat> *images, std::vector<int> *classes) throw(std::runtime_error)
+		   StalkR::FaceTrainer *trainer) throw(std::runtime_error)
     {
 	mysqlpp::Query query = database->query("select * from friends");   
 	query << " where user_id=" << user_id;
@@ -153,8 +154,10 @@ namespace
 					   CV_LOAD_IMAGE_GRAYSCALE);
 		if (image.data)
 		{
-		    images->push_back(image);
-		    classes->push_back(f.id);
+		    if (j == 0 && faces.num_rows() > 1)
+			trainer->addValidationFace(image, f.id);
+		    else
+			trainer->addTrainingFace(image, f.id);
 		}
 	    }
 	}
@@ -229,19 +232,13 @@ void TaskManager::executeTask(const Task& t, FaceDetector *detector) throw(std::
 {
     preprocessFaces(t.user_id, &m_database, detector);
 
-    std::vector<cv::Mat> faces;
-    std::vector<int>     classes;
-    loadFaces(t.user_id, &m_database, &faces, &classes);
-    if (faces.empty())
-    {
-	assert(classes.empty());
+    FaceTrainer trainer;
+    trainer.loadNotFaces("./NotFaces");
+    loadFaces(t.user_id, &m_database, &trainer);
+    if (trainer.empty())
 	return;
-    }
 
-    static const double DISTANCE_TRESHOLD = 2000.0;
-    cv::Ptr<cv::FaceRecognizer> recognizer;
-    recognizer = cv::createFisherFaceRecognizer(0, DISTANCE_TRESHOLD);
-    recognizer->train(faces, classes);
+    cv::Ptr<cv::FaceRecognizer> recognizer = trainer.train();
 
     std::stringstream pathstream;
     pathstream << RECOGNIZER_PREFIX << t.user_id << RECOGNIZER_EXTENSION;

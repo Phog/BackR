@@ -10,8 +10,8 @@ LDD_FLAGS     := -lmysqlpp -lmysqlclient -lopencv_objdetect -lopencv_core \
 TARGET_RELEASE := release/BackR
 TARGET_DEBUG   := debug/BackR
 
-HEADERS := TaskManager.h Database.h FaceDetector.h
-SRC 	:= BackR.cpp TaskManager.cpp Database.cpp FaceDetector.cpp
+HEADERS := TaskManager.h Database.h FaceDetector.h FaceTrainer.h
+SRC 	:= BackR.cpp TaskManager.cpp Database.cpp FaceDetector.cpp FaceTrainer.cpp
 OBJ 	:= $(SRC:.cpp=.o)
 
 release: $(TARGET_RELEASE)
