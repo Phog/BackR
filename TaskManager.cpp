@@ -162,6 +162,15 @@ namespace
 	    }
 	}
     }
+
+    int countFriends(int user_id, mysqlpp::Connection *database) throw(std::runtime_error)
+    {
+	mysqlpp::Query query = database->query("select id from friends");   
+	query << " where user_id=" << user_id;
+
+	mysqlpp::StoreQueryResult friends = query.store();
+	return !friends ? 0 : friends.num_rows();
+    }
 }
 
 using StalkR::TaskManager;
@@ -235,7 +244,7 @@ void TaskManager::executeTask(const Task& t, FaceDetector *detector) throw(std::
     FaceTrainer trainer;
     trainer.loadNotFaces("./NotFaces");
     loadFaces(t.user_id, &m_database, &trainer);
-    if (trainer.empty())
+    if (trainer.empty() || countFriends(t.user_id, &m_database) <= 1)
 	return;
 
     cv::Ptr<cv::FaceRecognizer> recognizer = trainer.train();
