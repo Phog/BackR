@@ -255,7 +255,8 @@ void TaskManager::executeTask(const Task& t, FaceDetector *detector) throw(std::
     recognizer->save(WEB_ROOT + pathstream.str());
 
     mysqlpp::Query query = m_database.query("update users set recognizer=");
-    query << mysqlpp::quote << pathstream.str();
+    query << mysqlpp::quote << pathstream.str()
+	  << " where id=" << t.user_id;
     query.execute();
     if (query.errnum())
     {
