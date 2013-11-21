@@ -9,20 +9,31 @@ LDD_FLAGS     := -lmysqlpp -lmysqlclient -lopencv_objdetect -lopencv_core \
 
 TARGET_RELEASE := release/BackR
 TARGET_DEBUG   := debug/BackR
+TARGET_TESTS   := test/BackR
 
-HEADERS := TaskManager.h Database.h FaceDetector.h FaceTrainer.h
-SRC 	:= BackR.cpp TaskManager.cpp Database.cpp FaceDetector.cpp FaceTrainer.cpp
-OBJ 	:= $(SRC:.cpp=.o)
+HEADERS   := TaskManager.h Database.h FaceDetector.h FaceTrainer.h
+SRC    	  := FaceTrainer.cpp Database.cpp
+BACKR     := BackR.cpp TaskManager.cpp FaceDetector.cpp 
+TESTS     := test.cpp
+OBJ       := $(SRC:.cpp=.o)
+BACKR_OBJ := $(BACKR:.cpp=.o)
+TESTS_OBJ := $(TESTS:.cpp=.o)
 
 release: $(TARGET_RELEASE)
-$(TARGET_RELEASE): $(SRC) $(HEADERS)
-	$(CXX) $(INCLUDES) $(FLAGS_RELEASE) -c $(SRC)
-	$(LDD) $(OBJ) -o $(TARGET_RELEASE) $(LDD_FLAGS)
+$(TARGET_RELEASE): $(SRC) $(HEADERS) $(BACKR)
+	$(CXX) $(INCLUDES) $(FLAGS_RELEASE) -c $(SRC) $(BACKR)
+	$(LDD) $(OBJ) $(BACKR_OBJ) -o $(TARGET_RELEASE) $(LDD_FLAGS)
 
 debug: $(TARGET_DEBUG)
-$(TARGET_DEBUG): $(SRC) $(HEADERS)
-	$(CXX) $(INCLUDES) $(FLAGS_DEBUG) -c $(SRC)
-	$(LDD) $(OBJ) -o $(TARGET_DEBUG) $(LDD_FLAGS)
+$(TARGET_DEBUG): $(SRC) $(HEADERS) $(BACKR)
+	$(CXX) $(INCLUDES) $(FLAGS_DEBUG) -c $(SRC) $(BACKR)
+	$(LDD) $(OBJ) $(BACKR_OBJ) -o $(TARGET_DEBUG) $(LDD_FLAGS)
+
+tests: $(TARGET_TESTS)
+$(TARGET_TESTS): $(SRC) $(HEADERS) $(TESTS)
+	$(CXX) $(INCLUDES) $(FLAGS_DEBUG) -c $(SRC) $(TESTS)
+	$(LDD) $(OBJ) $(TESTS_OBJ) -o $(TARGET_TESTS) $(LDD_FLAGS)
 
 clean:
-	rm -f $(OBJ) $(TARGET_RELEASE) $(TARGET_DEBUG)
+	rm -f $(OBJ) $(BACKR_OBJ) $(TESTS_OBJ) \
+	$(TARGET_RELEASE) $(TARGET_DEBUG) $(TARGET_TESTS)

@@ -80,7 +80,8 @@ namespace
 	mysqlpp::Query query = database->query("select i.*");   
 	query << " from images i, friends f"
 	      << " where i.friend_id=f.id and f.user_id=" << user_id
-	      << " and i.id not in (select image_id from faces)";
+	      << " and not exists (select fr.* from faces fr"
+	      << " where fr.image_id=i.id)";
 
 	mysqlpp::StoreQueryResult result = query.store();
 	if (!result)
