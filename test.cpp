@@ -14,8 +14,12 @@
 #include <sstream>
 #include <stdexcept>
 
+#define DO_QUOTE(X) #X
+#define QUOTE(X) DO_QUOTE(X)
+
 typedef std::map<int, std::vector<cv::Mat> > FaceMap;
-const std::string WEB_ROOT    = "/var/www/public/";
+const std::string SERVR_ROOT  = QUOTE(WEB_ROOT);
+const std::string PUBLIC_ROOT = SERVR_ROOT + "/public/";
 const std::string FACE_PREFIX = "main/processed_images/";
 
 FaceMap buildFriendFaceMap(int id, mysqlpp::Connection *database) throw(std::runtime_error)
@@ -54,7 +58,7 @@ FaceMap buildFriendFaceMap(int id, mysqlpp::Connection *database) throw(std::run
 	    if (face.path.is_null)
 		continue;
 		
-	    cv::Mat image = cv::imread(WEB_ROOT + face.path.data,
+	    cv::Mat image = cv::imread(PUBLIC_ROOT + face.path.data,
 				       CV_LOAD_IMAGE_GRAYSCALE);
 	    if (image.data)
 		faceList.push_back(image);

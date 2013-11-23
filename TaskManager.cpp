@@ -7,9 +7,13 @@
 #include <sstream>
 #include <cassert>
 
+#define DO_QUOTE(X) #X
+#define QUOTE(X) DO_QUOTE(X)
+
 namespace 
 {
-    const std::string WEB_ROOT             = "/var/www/public/";
+    const std::string SERVR_ROOT           = QUOTE(WEB_ROOT);
+    const std::string PUBLIC_ROOT          = SERVR_ROOT + "/public/";
     const std::string FACE_PREFIX          = "main/processed_images/";
     const std::string FACE_EXTENSION       = ".png";
     const std::string RECOGNIZER_PREFIX    = "main/recognizers/";
@@ -45,7 +49,7 @@ namespace
 			 mysqlpp::Connection *database,
 			 StalkR::FaceDetector *detector) throw(std::runtime_error)
     {
-	const std::string inputPath = WEB_ROOT + image.path.data;
+	const std::string inputPath = PUBLIC_ROOT + image.path.data;
 	
 	detector->recognize(inputPath);
 	if (!detector->facesRemaining())
@@ -69,7 +73,7 @@ namespace
 		throw std::runtime_error(errstream.str());
 	    }
 
-	    detector->outputFace(WEB_ROOT + pathstream.str());
+	    detector->outputFace(PUBLIC_ROOT + pathstream.str());
 	}
     }
 
@@ -151,7 +155,7 @@ namespace
 		if (face.path.is_null)
 		    continue;
 		
-		cv::Mat image = cv::imread(WEB_ROOT + face.path.data,
+		cv::Mat image = cv::imread(PUBLIC_ROOT + face.path.data,
 					   CV_LOAD_IMAGE_GRAYSCALE);
 		if (image.data)
 		{
@@ -252,7 +256,7 @@ void TaskManager::executeTask(const Task& t, FaceDetector *detector) throw(std::
 
     std::stringstream pathstream;
     pathstream << RECOGNIZER_PREFIX << t.user_id << RECOGNIZER_EXTENSION;
-    recognizer->save(WEB_ROOT + pathstream.str());
+    recognizer->save(PUBLIC_ROOT + pathstream.str());
 
     mysqlpp::Query query = m_database.query("update users set recognizer=");
     query << mysqlpp::quote << pathstream.str()

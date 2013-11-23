@@ -16,7 +16,10 @@ How to build and run:
 3) Install the following packages:
 	build-essential, libmysql++3, libmysql++-dev
 
-4) Compile and run the project:
+4) Define the required environment variables
+	$ export WEB_ROOT="[PATH-TO-SERVR-FOLDER]/www"
+
+5) Compile and run the project:
 	$ cd [BackR-DIRECTORY]
 	$ make release
 	$ ./release/BackR DB_USERNAME DB_PASSWORD

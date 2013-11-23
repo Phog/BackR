@@ -1,8 +1,8 @@
 CXX := g++
 LDD := g++
 
-FLAGS_RELEASE := -Wall -Wextra -O2 -std=c++0x
-FLAGS_DEBUG   := -Wall -Wextra -g -std=c++0x
+FLAGS_RELEASE := -Wall -Wextra -O2 -std=c++0x -DWEB_ROOT=$WEB_ROOT
+FLAGS_DEBUG   := -Wall -Wextra -g -std=c++0x -DWEB_ROOT=$WEB_ROOT
 INCLUDES      := -I/usr/include/mysql -I/usr/include/mysql++
 LDD_FLAGS     := -lmysqlpp -lmysqlclient -lopencv_objdetect -lopencv_core \
 	         -lopencv_contrib -lopencv_imgproc -lopencv_highgui
